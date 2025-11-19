@@ -130,32 +130,28 @@ curl -X POST https://python-executor-927211469366.us-central1.run.app/execute \
 
 1. Set your GCP project ID:
 ```bash
-export PROJECT_ID=your-project-id
+export PROJECT_ID=python-executor-478704
 export SERVICE_NAME=python-executor
 export REGION=us-central1
 ```
 
 2. Build and push to Google Container Registry:
 ```bash
-gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_NAME
+gcloud builds submit --tag gcr.io/python-executor-478704/python-executor
 ```
 
 3. Deploy to Cloud Run:
 ```bash
-gcloud run deploy $SERVICE_NAME \
-  --image gcr.io/$PROJECT_ID/$SERVICE_NAME \
-  --platform managed \
-  --region $REGION \
-  --allow-unauthenticated \
-  --memory 1Gi \
-  --cpu 1 \
+gcloud run deploy python-executor `
+  --image gcr.io/python-executor-478704/python-executor `
+  --platform managed `
+  --region us-central1 `
+  --allow-unauthenticated `
+  --memory 1Gi `
+  --cpu 1 `
   --timeout 60
 ```
 
-4. Get the service URL:
-```bash
-gcloud run services describe $SERVICE_NAME --region $REGION --format 'value(status.url)'
-```
 
 ### Testing Cloud Run Deployment
 
@@ -293,14 +289,6 @@ The return value must be convertible to JSON (dict, list, string, number, boolea
 
 ### Script timeout
 If scripts take longer than 30 seconds, they will be terminated. Optimize your code or increase the timeout in app.py and nsjail.cfg.
-
-## License
-
-MIT License - feel free to use this for your projects!
-
-## Contributing
-
-Pull requests welcome! Please ensure all tests pass before submitting.
 
 ---
 
