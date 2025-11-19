@@ -37,37 +37,43 @@ import json
 import sys
 import io
 
-# Redirect stdout to capture print statements
+# Redirect stdout to capture print statements BEFORE importing user code
 old_stdout = sys.stdout
+old_stderr = sys.stderr
 sys.stdout = captured_stdout = io.StringIO()
+sys.stderr = captured_stderr = io.StringIO()
 
 # User's script
 '''
         wrapper_code += script
         wrapper_code += '''
 
-# Restore stdout
-sys.stdout = old_stdout
-
 # Execute main and capture result
 try:
     result = main()
+    
+    # Restore stdout/stderr BEFORE outputting result
+    sys.stdout = old_stdout
+    sys.stderr = old_stderr
     
     # Validate that result is JSON-serializable
     try:
         json.dumps(result)
     except (TypeError, ValueError):
-        print(json.dumps({"error": "main() must return a JSON-serializable value"}))
+        print(json.dumps({"error": "main() must return a JSON-serializable value"}), file=sys.stderr)
         sys.exit(1)
     
-    # Output the result and stdout
+    # Output the result and stdout (only JSON to stdout now)
     output = {
         "result": result,
         "stdout": captured_stdout.getvalue()
     }
     print(json.dumps(output))
 except Exception as e:
-    print(json.dumps({"error": f"Error executing main(): {str(e)}"}))
+    # Restore streams if not already done
+    sys.stdout = old_stdout
+    sys.stderr = old_stderr
+    print(json.dumps({"error": f"Error executing main(): {str(e)}"}), file=sys.stderr)
     sys.exit(1)
 '''
         wrapper_script = wrapper_code
@@ -78,30 +84,27 @@ except Exception as e:
             f.write(wrapper_script)
         
         try:
-            # Execute with nsjail
+            # For Cloud Run, use direct subprocess with resource limits
+            # Cloud Run provides container-level isolation
             result = subprocess.run(
-                [
-                    '/usr/sbin/nsjail',
-                    '--config', '/app/nsjail.cfg',
-                    '--env', 'OPENBLAS_NUM_THREADS=1',
-                    '--env', 'OMP_NUM_THREADS=1',
-                    '--env', 'MKL_NUM_THREADS=1',
-                    '--env', 'PYTHONDONTWRITEBYTECODE=1',
-                    '--',
-                    '/usr/local/bin/python3',
-                    script_path
-                ],
+                ['/usr/local/bin/python3', script_path],
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=30,
+                env={
+                    'PYTHONDONTWRITEBYTECODE': '1',
+                    'PYTHONUNBUFFERED': '1',
+                    'OPENBLAS_NUM_THREADS': '1',
+                    'OMP_NUM_THREADS': '1',
+                    'MKL_NUM_THREADS': '1'
+                },
+                cwd='/tmp'
             )
             
             # Parse the output
             if result.returncode == 0:
                 try:
-                    output_lines = result.stdout.strip().split('\n')
-                    json_output = output_lines[-1]  # Last line is our JSON
-                    output = json.loads(json_output)
+                    output = json.loads(result.stdout.strip())
                     return jsonify(output), 200
                 except json.JSONDecodeError:
                     return jsonify({
