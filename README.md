@@ -26,16 +26,11 @@ docker build -t python-executor .
 docker run -p 8080:8080 python-executor
 ```
 
-The service will be available at `http://localhost:8080`
+### Live Demo
 
-### Testing Locally
-
-```bash
-curl -X POST http://localhost:8080/execute \
-  -H "Content-Type: application/json" \
-  -d '{
-    "script": "def main():\n    return {\"message\": \"Hello, World!\", \"result\": 42}"
-  }'
+The service is deployed on Google Cloud Run:
+```
+https://python-executor-927211469366.us-central1.run.app
 ```
 
 ## API Documentation
@@ -81,7 +76,7 @@ Health check endpoint.
 
 ### Basic Example
 ```bash
-curl -X POST http://localhost:8080/execute \
+curl -X POST https://python-executor-927211469366.us-central1.run.app/execute \
   -H "Content-Type: application/json" \
   -d '{
     "script": "def main():\n    return {\"message\": \"Hello, World!\"}"
@@ -90,7 +85,7 @@ curl -X POST http://localhost:8080/execute \
 
 ### With stdout
 ```bash
-curl -X POST http://localhost:8080/execute \
+curl -X POST https://python-executor-927211469366.us-central1.run.app/execute \
   -H "Content-Type: application/json" \
   -d '{
     "script": "def main():\n    print(\"Debug message\")\n    return {\"result\": 42}"
@@ -99,7 +94,7 @@ curl -X POST http://localhost:8080/execute \
 
 ### Using Pandas
 ```bash
-curl -X POST http://localhost:8080/execute \
+curl -X POST https://python-executor-927211469366.us-central1.run.app/execute \
   -H "Content-Type: application/json" \
   -d '{
     "script": "import pandas as pd\n\ndef main():\n    df = pd.DataFrame({\"a\": [1, 2, 3], \"b\": [4, 5, 6]})\n    return {\"sum\": int(df[\"a\"].sum())}"
@@ -108,7 +103,7 @@ curl -X POST http://localhost:8080/execute \
 
 ### Using Numpy
 ```bash
-curl -X POST http://localhost:8080/execute \
+curl -X POST https://python-executor-927211469366.us-central1.run.app/execute \
   -H "Content-Type: application/json" \
   -d '{
     "script": "import numpy as np\n\ndef main():\n    arr = np.array([1, 2, 3, 4, 5])\n    return {\"mean\": float(np.mean(arr))}"
@@ -117,7 +112,7 @@ curl -X POST http://localhost:8080/execute \
 
 ### Using OS Module
 ```bash
-curl -X POST http://localhost:8080/execute \
+curl -X POST https://python-executor-927211469366.us-central1.run.app/execute \
   -H "Content-Type: application/json" \
   -d '{
     "script": "import os\n\ndef main():\n    cwd = os.getcwd()\n    return {\"cwd\": cwd}"
@@ -164,13 +159,28 @@ gcloud run services describe $SERVICE_NAME --region $REGION --format 'value(stat
 
 ### Testing Cloud Run Deployment
 
-Replace `YOUR_CLOUD_RUN_URL` with your actual Cloud Run URL:
+Test the deployed service with these examples:
 
 ```bash
-curl -X POST https://YOUR_CLOUD_RUN_URL/execute \
+# Test with numpy
+curl -X POST https://python-executor-927211469366.us-central1.run.app/execute \
   -H "Content-Type: application/json" \
   -d '{
-    "script": "def main():\n    return {\"message\": \"Hello from Cloud Run!\", \"status\": \"success\"}"
+    "script": "import numpy as np\n\ndef main():\n    arr = np.array([1, 2, 3, 4, 5])\n    return {\"mean\": float(np.mean(arr))}"
+  }'
+
+# Test with os module
+curl -X POST https://python-executor-927211469366.us-central1.run.app/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "script": "import os\n\ndef main():\n    cwd = os.getcwd()\n    return {\"cwd\": cwd}"
+  }'
+
+# Test with stdout
+curl -X POST https://python-executor-927211469366.us-central1.run.app/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "script": "def main():\n    print(\"Debug message\")\n    return {\"result\": 42}"
   }'
 ```
 
@@ -184,6 +194,18 @@ The service uses nsjail to provide multiple layers of security:
 - **Seccomp filtering**: Whitelist of allowed system calls
 - **Execution timeout**: 30-second hard limit
 - **Temporary file cleanup**: Automatic cleanup after execution
+
+### Cloud Run Security Model
+
+**Note**: The nsjail configuration has been adapted for Google Cloud Run compatibility. While some namespace isolation features (CLONE_NEWUSER, CLONE_NEWNET) are disabled due to Cloud Run's security model, the service still maintains strong security through:
+
+- Resource limits (CPU, memory, file size)
+- Filesystem isolation and read-only mounts
+- Cloud Run's container isolation layer
+- Seccomp filtering and syscall restrictions
+- Execution timeouts and automatic cleanup
+
+This multi-layered approach ensures secure script execution even in a managed container environment.
 
 ## Validation Rules
 

@@ -6,6 +6,18 @@ import os
 
 app = Flask(__name__)
 
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({
+        "service": "Python Script Executor",
+        "version": "1.0",
+        "endpoints": {
+            "execute": "POST /execute",
+            "health": "GET /health"
+        },
+        "documentation": "See README for usage examples"
+    }), 200
+
 @app.route('/execute', methods=['POST'])
 def execute_script():
     try:
